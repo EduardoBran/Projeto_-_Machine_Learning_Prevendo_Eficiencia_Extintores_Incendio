@@ -71,3 +71,15 @@ getwd()
 #   extintor de incêndio.
 
 
+## Explicação das Variáveis:
+  
+# -> TAMANHO (SIZE): Representa o tamanho da chama por meio do tamanho do recipiente de combustível. Para combustíveis líquidos, os tamanhos
+#                    variam de 7 cm a 20 cm e são codificados de 1 a 5. Para GLP, são usadas configurações de meio e completo gás, codificadas
+#                    como 6 (meio) e 7 (completo).
+
+# -> COMBUSTÍVEL (FUEL)    : Tipo de combustível utilizado, podendo ser gasolina, querosene, thinner ou GLP.
+# -> DISTÂNCIA (DISTANCE)  : Distância entre o sistema de som e o recipiente de combustível, variando de 10 cm a 190 cm.
+# -> DECIBÉIS (DESIBEL)    : Intensidade do som produzido pelo sistema de som, medida em decibéis, variando de 72 a 113 dB.
+# -> FLUXO de AR (AIRFLOW) : Fluxo de ar resultante das ondas sonoras durante a extinção da chama, medido em metros por segundo (m/s), variando de 0 a 17 m/s.
+# -> FREQUÊNCIA (FREQUENCY): Frequência das ondas sonoras usadas para tentar extinguir a chama, variando de 1 a 75 Hz.
+# -> STATUS (STATUS)       : Estado da chama após a tentativa de extinção, onde 0 indica não extinção e 1 indica extinção.
