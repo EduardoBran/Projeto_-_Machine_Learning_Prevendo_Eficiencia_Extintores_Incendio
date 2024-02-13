@@ -19,8 +19,10 @@ getwd()
 library(readxl)         # carregar arquivos
 
 library(dplyr)          # manipulação de dados
+library(tidyr)          # manipulação de dados
 
 library(ggplot2)        # gera gráficos
+library(patchwork)      # unir gráficos
 library(ROCR)           # Gerando uma curva ROC em R
 
 library(randomForest)   # carrega algoritimo de ML (randomForest)
@@ -41,10 +43,14 @@ library(h2o)            # framework para construir modelos de machine learning
 #### Carregando dados
 dados <- data.frame(read_xlsx("dataset/Acoustic_Extinguisher_Fire_Dataset.xlsx"))
 
+
+#### Análise Exploratória dos Dados
+
 # Verificando e removendo valores ausentes
 dados <- dados[complete.cases(dados), ]
 colSums(is.na(dados))
 
+# Tipo de Dados
 dim(dados)
 str(dados)
 summary(dados)
@@ -56,11 +62,76 @@ length(unique(dados$AIRFLOW))
 length(unique(dados$FREQUENCY))
 length(unique(dados$STATUS))
 
+# Modificando Variáveis Para Tipo Factor
+dados$STATUS <- as.factor(dados$STATUS)
+dados$SIZE <- as.factor(dados$SIZE)
+dados$FUEL <- as.factor(dados$FUEL)
+str(dados)
+summary(dados)
+
+
+## Visualizando por Gráficos
+
+# Histogramas para variáveis numéricas
+dados_long <- pivot_longer(dados, cols = c("DISTANCE", "DESIBEL", "AIRFLOW", "FREQUENCY"))
+
+ggplot(dados_long, aes(x = value)) + 
+  geom_histogram(bins = 30, fill = "skyblue", color = "black") + 
+  facet_wrap(~name, scales = "free", ncol = 2) + 
+  xlab("") + ylab("Frequência") + 
+  ggtitle("Histogramas de Variáveis Numéricas") + 
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5)) # Centraliza o título
+rm(dados_long)
+
+
+# Criando o BoxPlot
+dados_long <- pivot_longer(dados, cols = c("DISTANCE", "DESIBEL", "AIRFLOW", "FREQUENCY"), 
+                           names_to = "Variable", values_to = "Value")
+ggplot(dados_long, aes(x = STATUS, y = Value, fill = STATUS)) + 
+  geom_boxplot() + 
+  facet_wrap(~Variable, scales = "free_y") + 
+  labs(title = "Boxplots por STATUS", y = "Valor", x = "STATUS") +
+  scale_fill_manual(values = c("#FF9999", "#9999FF")) + # Cores para os boxplots
+  theme_minimal() +
+  theme(legend.position = "none", plot.title = element_text(hjust = 0.5))
+
+
+# Gráficos de Violino para Variáveis Numéricas por STATUS
+ggplot(dados_long, aes(x = STATUS, y = Value, fill = STATUS)) + 
+  geom_violin(trim = FALSE) + 
+  facet_wrap(~Variable, scales = "free_y") + 
+  labs(title = "Gráficos de Violino das Variáveis Numéricas por STATUS", x = "STATUS", y = "Valor") +
+  scale_fill_manual(values = c("0" = "#FF9999", "1" = "#9999FF")) +
+  theme_minimal() +
+  theme(legend.position = "none", plot.title = element_text(hjust = 0.5))
+
+
+# Primeiro gráfico: Distribuição de SIZE por STATUS
+plot_size <- ggplot(dados, aes(x = SIZE, fill = STATUS)) + 
+  geom_bar(position = "dodge") + 
+  labs(title = "Distribuição de SIZE por STATUS", x = "SIZE", y = "Contagem") +
+  scale_fill_manual(values = c("0" = "#FF9999", "1" = "#9999FF")) +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5))
+
+# Segundo gráfico: Distribuição de FUEL por STATUS
+plot_fuel <- ggplot(dados, aes(x = FUEL, fill = STATUS)) + 
+  geom_bar(position = "dodge") + 
+  labs(title = "Distribuição de FUEL por STATUS", x = "FUEL", y = "Contagem") +
+  scale_fill_manual(values = c("0" = "#FF9999", "1" = "#9999FF")) +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5))
+
+# Combinando os dois gráficos em um único plot
+plot_size / plot_fuel
 
 
 
 
-## Criando Lista Para Armazenar Resultados dos Modelos das Versões
+
+
+#### Criando Lista Para Armazenar Resultados dos Modelos das Versões
 resultados_modelos <- list()
 
 
@@ -180,7 +251,7 @@ str(dados)
 
 # - Converte As Variáveis SIZE, FUEL e a variável alvo STATUS para tipo factor
 # - Aplica Seleção de Variáveis
-# - Cria 1 Tipo de Modelo utilizando todas as variáveis (RandomForest)
+# - Cria 1 Tipo de Modelo utilizando Seleção de Variáveis (RandomForest)
 
 
 ## Preparação dos Dados
@@ -332,7 +403,7 @@ resultados_modelos[['Versao4']] <- list(
   Specificity = round(conf_mat$byClass['Specificity'], 4),
   Balanced_Accuracy = round(conf_mat$byClass['Balanced Accuracy'], 4)
 )
-#resultados_modelos # Acc 0.9332
+#resultados_modelos # Acc 0.9584
 
 rm(previsoes)
 rm(conf_mat)
@@ -350,7 +421,7 @@ str(dados)
 # - Converte As Variáveis SIZE, FUEL e a variável alvo STATUS para tipo factor
 # - Aplica Normalização Nas Variáveis Numéricas
 # - Aplica Seleção de Variáveis
-# - Cria 1 Tipo de Modelo utilizando todas as variáveis (RandomForest)
+# - Cria 1 Tipo de Modelo utilizando Seleção de Variáveis (RandomForest)
 
 
 ## Preparação dos Dados
@@ -416,7 +487,7 @@ str(dados)
 # - Converte As Variáveis SIZE, FUEL e a variável alvo STATUS para tipo factor
 # - Adicionando Novas Variáveis de Relação
 # - Aplica Seleção de Variáveis
-# - Cria 1 Tipo de Modelo utilizando todas as variáveis (RandomForest)
+# - Cria 1 Tipo de Modelo utilizando Seleção de Variáveis (RandomForest)
 
 
 ## Preparação dos Dados
@@ -559,7 +630,7 @@ rm(numeric_columns)
 
 ## Seleção de Variáveis (Feature Selection)
 modelo <- randomForest(STATUS ~ ., 
-                       data = dados, 
+                       data = dados_nor, 
                        ntree = 100, nodesize = 10, importance = T)
 
 # Visualizando por números
@@ -593,7 +664,8 @@ dados_teste <- dados_nor[-indices, ]
 rm(indices)
 
 # RandomForest
-modelo_rf <- randomForest(STATUS ~ AIRFLOW + DISTANCE + FREQUENCY + SIZE + FUEL, 
+modelo_rf <- randomForest(STATUS ~ Dist_Airflow_Ratio + Freq_Airflow_Inverse + AIRFLOW + DISTANCE
+                          + SIZE + Desibel_Freq_Product + FREQUENCY + FUEL, 
                           data = dados_treino, 
                           ntree = 100, nodesize = 10, importance = TRUE)
 
@@ -608,11 +680,10 @@ resultados_modelos[['Versao7']] <- list(
   Specificity = round(conf_mat$byClass['Specificity'], 4),
   Balanced_Accuracy = round(conf_mat$byClass['Balanced Accuracy'], 4)
 )
-#resultados_modelos # Acc 0.9624
+#resultados_modelos # Acc 0.9578
 
 rm(previsoes)
 rm(conf_mat)
-
 
 
 
@@ -680,29 +751,54 @@ modelo_automl <- h2o.automl(y = 'STATUS',                                      #
                             max_runtime_secs = 60 * 15,
                             sort_metric = "AUC")                               # Mudança da métrica de avaliação para AUC, adequada para classificação
 
+modelo_automl2 <- h2o.automl(y = 'STATUS',                                    # Nome da variável alvo atualizado para 'STATUS'
+                            training_frame = h2o_frame_split[[1]],             # Conjunto de dados de treinamento
+                            leaderboard_frame = h2o_frame_split[[2]],          # Conjunto de dados para a leaderboard
+                            max_runtime_secs = 60 * 60,
+                            sort_metric = "AUC")                               # Mudança da métrica de avaliação para AUC, adequada para classificação
+
+
 # Extrai o leaderboard (dataframe com os modelos criados)
-leaderboard_automl <- as.data.frame(modelo_automl@leaderboard)
+leaderboard_automl2 <- as.data.frame(modelo_automl2@leaderboard)
 head(leaderboard_automl, 3)
 View(leaderboard_automl)
 
 
 # Extrai o líder (modelo com melhor performance)
-lider_automl <- modelo_automl@leader
+lider_automl2 <- modelo_automl2@leader
 print(lider_automl)
 View(lider_automl)
 
 # Avaliação dos Modelos
-h2o.performance(lider_automl, newdata = h2o_frame_split[[2]])
+h2o.performance(lider_automl2, newdata = h2o_frame_split[[2]])
 
 ## Calcular Acurácia
-# Obter o valor de threshold para F1-optimal a partir do objeto de performance
-perf <- h2o.performance(model = lider_automl, newdata = h2o_frame_split[[2]])
-perf
-optimal_threshold <- h2o.metric(perf)$threshold[which.max(thresholds_and_metrics$f1)]
+
+# Obtendo predições probabilísticas para o conjunto de teste
+predicoes_prob <- h2o.predict(lider_automl2, h2o_frame_split[[2]])
+
+# As predições são retornadas com uma coluna para cada classe, assumindo que a segunda coluna é a probabilidade da classe positiva
+# Para binário, geralmente, é "predict", "p0" para classe negativa, e "p1" para classe positiva
+probabilidades <- as.vector(predicoes_prob$p1)  # Extrai probabilidades da classe positiva
+
+# Aplicando o limiar ótimo para determinar as predições de classe
+predicoes_classificacao <- ifelse(probabilidades > optimal_threshold2, 1, 0)
+
+# Convertendo o conjunto de teste para um dataframe para facilitar a comparação
+df_teste <- as.data.frame(h2o_frame_split[[2]])
+
+# Calculando a acurácia: comparação das predições de classe com os valores reais
+acuracia <- mean(predicoes_classificacao == as.numeric(as.character(df_teste$STATUS)))  # Garantindo comparação numérica
+
+# Imprimindo a acurácia
+print(paste("Acurácia: ", acuracia))
+
+
 
 # Agora, usar o valor de threshold para calcular a acurácia
-accuracy <- h2o.accuracy(perf, threshold = optimal_threshold)[1]
+accuracy <- h2o.accuracy(perf2, threshold = optimal_threshold)[1]
 accuracy
+
 
 
 
@@ -710,6 +806,11 @@ accuracy
 # Avaliação Modelo AutoMl 1
 # accuracy: 0.9832954
 
+# Avaliação Modelo AutoMl 1
+# accuracy: 0.986481411941419
+
+
+h2o.shutdown()
 
 
 
@@ -721,14 +822,20 @@ accuracy
 
 
 # NORMALIZAR VALORES NUMÉRICOS (feito)
-# CRIAR NOVAS VARIAVEIS DE RELAÇÃO
+# CRIAR NOVAS VARIAVEIS DE RELAÇÃO (feito)
+
 # TRANSFORMAR VARIAVSEIS NUMERICAS EM CATEGORICAS ATRAVELS DE LEVELS (feito)
-# SELEÇÃO DE VARIÁVEIS (criar um loop para testar todas as combinações)
 
-# CONTINUAR NA VERSÃO 7
-# VERIFICAR QUAIS VARIAVEIS NUMÉRICAS SERÃO NORMALIZADAS (PROVAVELMENTE AS ORIGINAIS)
+### ->> BALANCEAR A VARIÁVEL ALVO USANDO A VERSÃO 7 OU 8
+### ->> Aplicar Tratamento de Outliers
 
-# BALANCEAR A VARIÁVEL ALVO USANDO A VERSÃO 7 OU 8
+### Após escolha da melhor versão de dados -> SELEÇÃO DE VARIÁVEIS (criar um loop para testar todas as combinações)
+
+
+
+
+
+
 
 
 
@@ -748,34 +855,6 @@ View(modelos_params)
 
 
 
-## ADICIONAR NOVAS VARIÁVEIS DE RELAÇÃO NAS VERSÕES 6, 7 e 8
-
-
-# 1. Relação Entre DISTANCE e AIRFLOW
-dados$Dist_Airflow_Ratio <- dados$DISTANCE / dados$AIRFLOW
-
-# 2. Produto de DESIBEL e FREQUENCY
-dados$Desibel_Freq_Product <- dados$DESIBEL * dados$FREQUENCY
-
-# 3. Relação Inversa Entre FREQUENCY e AIRFLOW
-dados$Freq_Airflow_Inverse <- dados$FREQUENCY / (dados$AIRFLOW + .Machine$double.eps)
-
-# 4. Agrupamento de DISTANCE
-dados$Distance_Category <- cut(dados$DISTANCE, breaks=c(0, 50, 100, 150, Inf), labels=c("Close", "Moderate", "Far", "Very Far"), include.lowest=TRUE)
-
-# 5. Logaritmo de DESIBEL
-dados$Desibel_Log <- log(dados$DESIBEL + epsilon)
-
-
-
-
-
-
-
-
-
-
-
 
 # 1. Codificação One-Hot para Variáveis Categóricas FUEL
 # Embora SIZE e STATUS já estejam convertidos para fatores, FUEL sendo categórico pode se beneficiar da codificação one-hot, criando variáveis
@@ -785,7 +864,7 @@ dados$Desibel_Log <- log(dados$DESIBEL + epsilon)
 # Variáveis como DISTANCE, DESIBEL, AIRFLOW, e FREQUENCY devem ser padronizadas para ter uma média de 0 e um desvio padrão de 1.
 # Isso é especialmente útil para algoritmos sensíveis à escala das variáveis, como SVM ou kNN.
 
-# 3. Engenharia de Atributos (veraso 4)
+# 3. Engenharia de Atributos (versao 4)
 # Atributos Polinomiais e de Interação: Considere criar atributos polinomiais para capturar relações não lineares, bem como atributos de 
 #                                       interação entre variáveis como DISTANCE * AIRFLOW ou DESIBEL * FREQUENCY.
 # Agrupamento por SIZE ou FUEL: Use métodos de agrupamento para identificar padrões dentro de cada categoria de SIZE ou FUEL e criar novas 
