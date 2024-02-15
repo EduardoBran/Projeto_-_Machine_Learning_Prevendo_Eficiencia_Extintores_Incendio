@@ -129,8 +129,7 @@ plot_fuel <- ggplot(dados, aes(x = FUEL, fill = STATUS)) +
 
 # Combinando os dois gráficos em um único plot
 plot_size / plot_fuel
-rm(plot_size)
-rm(plot_fuel)
+rm(plot_size, plot_fuel)
 
 
 
@@ -181,7 +180,7 @@ modelo_rf <- randomForest(STATUS ~ .,
 previsoes <- predict(modelo_rf, newdata = dados_teste)
 conf_mat <- confusionMatrix(previsoes, dados_teste$STATUS)
 
-resultados_modelos[['Versao1']] <- list(
+resultados_modelos[['Versao1_rf']] <- list(
   Accuracy = round(conf_mat$overall['Accuracy'], 4),
   Sensitivity = round(conf_mat$byClass['Sensitivity'], 4),
   Specificity = round(conf_mat$byClass['Specificity'], 4),
@@ -189,9 +188,7 @@ resultados_modelos[['Versao1']] <- list(
 )
 #resultados_modelos  # Acc 0.9541
 
-rm(previsoes)
-rm(conf_mat)
-
+rm(previsoes, conf_mat)
 
 
 
@@ -235,7 +232,7 @@ modelo_rf <- randomForest(STATUS ~ .,
 previsoes <- predict(modelo_rf, newdata = dados_teste)
 conf_mat <- confusionMatrix(previsoes, dados_teste$STATUS)
 
-resultados_modelos[['Versao2']] <- list(
+resultados_modelos[['Versao2_rf']] <- list(
   Accuracy = round(conf_mat$overall['Accuracy'], 4),
   Sensitivity = round(conf_mat$byClass['Sensitivity'], 4),
   Specificity = round(conf_mat$byClass['Specificity'], 4),
@@ -243,8 +240,7 @@ resultados_modelos[['Versao2']] <- list(
 )
 #resultados_modelos  # Acc 0.9613
 
-rm(previsoes)
-rm(conf_mat)
+rm(previsoes, conf_mat)
 
 
 
@@ -292,9 +288,7 @@ ggplot(df_importancia, aes(x = reorder(Variavel, -Importancia), y = Importancia)
   labs(title = "Importância das Variáveis", x = "Variável", y = "Importância") +
   theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1, size = 10))
 
-rm(modelo)
-rm(importancia_ordenada)
-rm(df_importancia)
+rm(modelo, importancia_ordenada, df_importancia)
 
 
 ## Criando Modelo
@@ -317,7 +311,7 @@ modelo_rf <- randomForest(STATUS ~ AIRFLOW + DISTANCE + FREQUENCY + SIZE + FUEL,
 previsoes <- predict(modelo_rf, newdata = dados_teste)
 conf_mat <- confusionMatrix(previsoes, dados_teste$STATUS)
 conf_mat
-resultados_modelos[['Versao3']] <- list(
+resultados_modelos[['Versao3_rf']] <- list(
   Accuracy = round(conf_mat$overall['Accuracy'], 4),
   Sensitivity = round(conf_mat$byClass['Sensitivity'], 4),
   Specificity = round(conf_mat$byClass['Specificity'], 4),
@@ -380,9 +374,7 @@ ggplot(df_importancia, aes(x = reorder(Variavel, -Importancia), y = Importancia)
   labs(title = "Importância das Variáveis", x = "Variável", y = "Importância") +
   theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1, size = 10))
 
-rm(modelo)
-rm(importancia_ordenada)
-rm(df_importancia)
+rm(modelo, importancia_ordenada, df_importancia)
 
 
 ## Criando Modelo
@@ -404,7 +396,7 @@ modelo_rf <- randomForest(STATUS ~ .,
 previsoes <- predict(modelo_rf, newdata = dados_teste)
 conf_mat <- confusionMatrix(previsoes, dados_teste$STATUS)
 conf_mat
-resultados_modelos[['Versao4']] <- list(
+resultados_modelos[['Versao4_rf']] <- list(
   Accuracy = round(conf_mat$overall['Accuracy'], 4),
   Sensitivity = round(conf_mat$byClass['Sensitivity'], 4),
   Specificity = round(conf_mat$byClass['Specificity'], 4),
@@ -600,9 +592,7 @@ ggplot(df_importancia, aes(x = reorder(Variavel, -Importancia), y = Importancia)
   labs(title = "Importância das Variáveis", x = "Variável", y = "Importância") +
   theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1, size = 10))
 
-rm(modelo)
-rm(importancia_ordenada)
-rm(df_importancia)
+rm(modelo, importancia_ordenada, df_importancia)
 
 
 ## Criando Modelo
@@ -625,7 +615,7 @@ modelo_rf <- randomForest(STATUS ~ AIRFLOW + Dist_Airflow_Ratio + Freq_Airflow_I
 previsoes <- predict(modelo_rf, newdata = dados_teste)
 conf_mat <- confusionMatrix(previsoes, dados_teste$STATUS)
 conf_mat
-resultados_modelos[['Versao6']] <- list(
+resultados_modelos[['Versao6_rf']] <- list(
   Accuracy = round(conf_mat$overall['Accuracy'], 4),
   Sensitivity = round(conf_mat$byClass['Sensitivity'], 4),
   Specificity = round(conf_mat$byClass['Specificity'], 4),
@@ -633,9 +623,7 @@ resultados_modelos[['Versao6']] <- list(
 )
 #resultados_modelos # Acc 0.9624
 
-rm(previsoes)
-rm(conf_mat)
-
+rm(previsoes, conf_mat)
 
 
 
@@ -712,9 +700,7 @@ ggplot(df_importancia, aes(x = reorder(Variavel, -Importancia), y = Importancia)
   labs(title = "Importância das Variáveis", x = "Variável", y = "Importância") +
   theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1, size = 10))
 
-rm(modelo)
-rm(importancia_ordenada)
-rm(df_importancia)
+rm(modelo, importancia_ordenada, df_importancia)
 
 
 ## Criando Modelo
@@ -737,7 +723,7 @@ modelo_rf <- randomForest(STATUS ~ Dist_Airflow_Ratio + Freq_Airflow_Inverse + A
 previsoes <- predict(modelo_rf, newdata = dados_teste)
 conf_mat <- confusionMatrix(previsoes, dados_teste$STATUS)
 conf_mat
-resultados_modelos[['Versao7']] <- list(
+resultados_modelos[['Versao7_rf']] <- list(
   Accuracy = round(conf_mat$overall['Accuracy'], 4),
   Sensitivity = round(conf_mat$byClass['Sensitivity'], 4),
   Specificity = round(conf_mat$byClass['Specificity'], 4),
@@ -783,13 +769,9 @@ rm(numeric_columns)
 #   mutate(across(where(is.numeric), ~ (. * (max(dados[, cur_column()]) - min(dados[, cur_column()])) + min(dados[, cur_column()]))))
 
 
-# Balanceamento da Variável Alvo
-
-# Aplicando o SMOTE para balancear a variável alvo
+# Balanceamento da Variável Alvo (Aplicando a técnica SMOTE para balancear a variável alvo)
 table(dados_nor$STATUS)
 dados_balanceados <- ovun.sample(STATUS ~ ., data = dados_nor, method = "over", N = 2*max(table(dados$STATUS)))$data
-
-# Verificando a distribuição da variável alvo após o balanceamento
 table(dados_balanceados$STATUS)
 
 
@@ -809,20 +791,76 @@ modelo_rf <- randomForest(STATUS ~ AIRFLOW + DISTANCE + FREQUENCY + SIZE + FUEL,
                           ntree = 100, nodesize = 10, importance = TRUE)
 
 
-## Avaliando e Visualizando Desempenho do Modelo
-previsoes <- predict(modelo_rf, newdata = dados_teste)
-conf_mat <- confusionMatrix(previsoes, dados_teste$STATUS)
-conf_mat
-resultados_modelos[['Versao8']] <- list(
-  Accuracy = round(conf_mat$overall['Accuracy'], 4),
-  Sensitivity = round(conf_mat$byClass['Sensitivity'], 4),
-  Specificity = round(conf_mat$byClass['Specificity'], 4),
-  Balanced_Accuracy = round(conf_mat$byClass['Balanced Accuracy'], 4)
+# SVM
+modelo_svm <- svm(STATUS ~ AIRFLOW + DISTANCE + FREQUENCY + SIZE + FUEL, 
+                  data = dados_treino, 
+                  type = "C-classification", 
+                  kernel = "radial")
+
+
+# GLM
+modelo_glm <- glm(data = dados_treino, STATUS ~ AIRFLOW + DISTANCE + FREQUENCY + SIZE + FUEL, family = binomial(link = 'logit'))
+
+
+# Xgboost
+dados_treino_xgb <- xgb.DMatrix(data.matrix(dados_treino[,-which(names(dados_treino) == "STATUS")]), label = as.numeric(dados_treino$STATUS)-1)
+dados_teste_xgb <- xgb.DMatrix(data.matrix(dados_teste[,-which(names(dados_teste) == "STATUS")]), label = as.numeric(dados_teste$STATUS)-1)
+
+param <- list(
+  objective = "binary:logistic", # Objetivo para classificação binária
+  booster = "gbtree",            # Uso de árvores de decisão como boosters
+  eta = 0.3,                     # Taxa de aprendizado
+  max_depth = 6                  # Profundidade máxima de cada árvore
 )
-# resultados_modelos # Acc 0.9717
 
-rm(previsoes, conf_mat)
+modelo_xgb <- xgb.train(
+  params = param,
+  data = dados_treino_xgb, 
+  nrounds = 100
+)
+rm(param)
 
+
+
+## Avaliando e Visualizando Desempenho dos Modelos
+previsoes_rf <- predict(modelo_rf, newdata = dados_teste)
+previsoes_svm <- predict(modelo_svm, newdata = dados_teste)
+previsoes_glm <- predict(modelo_glm, newdata = dados_teste, type = 'response')
+previsoes_xgb <- predict(modelo_xgb, newdata = dados_teste_xgb)
+conf_mat_rf <- confusionMatrix(previsoes_rf, dados_teste$STATUS)
+conf_mat_svm <- confusionMatrix(previsoes_svm, dados_teste$STATUS)
+conf_mat_glm <- confusionMatrix(factor(ifelse(previsoes_glm > 0.5, 1, 0)), dados_teste$STATUS)
+conf_mat_xgb <- confusionMatrix(factor(ifelse(previsoes_xgb > 0.5, 1, 0)), factor(as.numeric(dados_teste$STATUS) - 1))
+
+resultados_modelos[['Versao8_rf']] <- list(
+  Accuracy = round(conf_mat_rf$overall['Accuracy'], 4),
+  Sensitivity = round(conf_mat_rf$byClass['Sensitivity'], 4),
+  Specificity = round(conf_mat_rf$byClass['Specificity'], 4),
+  Balanced_Accuracy = round(conf_mat_rf$byClass['Balanced Accuracy'], 4)
+)
+resultados_modelos[['Versao8_svm']] <- list(
+  Accuracy = round(conf_mat_svm$overall['Accuracy'], 4),
+  Sensitivity = round(conf_mat_svm$byClass['Sensitivity'], 4),
+  Specificity = round(conf_mat_svm$byClass['Specificity'], 4),
+  Balanced_Accuracy = round(conf_mat_svm$byClass['Balanced Accuracy'], 4)
+)
+resultados_modelos[['Versao8_glm']] <- list(
+  Accuracy = round(conf_mat_glm$overall['Accuracy'], 4),
+  Sensitivity = round(conf_mat_glm$byClass['Sensitivity'], 4),
+  Specificity = round(conf_mat_glm$byClass['Specificity'], 4),
+  Balanced_Accuracy = round(conf_mat_glm$byClass['Balanced Accuracy'], 4)
+)
+resultados_modelos[['Versao8_xgb']] <- list(
+  Accuracy = round(conf_mat_xgb$overall['Accuracy'], 4),
+  Sensitivity = round(conf_mat_xgb$byClass['Sensitivity'], 4),
+  Specificity = round(conf_mat_xgb$byClass['Specificity'], 4),
+  Balanced_Accuracy = round(conf_mat_xgb$byClass['Balanced Accuracy'], 4)
+)
+
+
+rm(previsoes_rf, previsoes_svm, previsoes_glm, previsoes_xgb)
+rm(conf_mat_rf, conf_mat_svm, conf_mat_glm, conf_mat_xgb)
+rm(dados_treino_xgb, dados_teste_xgb)
 
 
 
@@ -906,36 +944,8 @@ h2o.performance(modelo_sta, newdata = h2o_frame_split[[2]])  # AUC:  0.9987226
 h2o.performance(modelo_xgb, newdata = h2o_frame_split[[2]])  # AUC:  0.9973968
 
 
+# Desligar h2o
 h2o.shutdown()
-
-
-
-
-modelo_gbm
-
-
-
-
-
-# NORMALIZAR VALORES NUMÉRICOS (feito)
-# CRIAR NOVAS VARIAVEIS DE RELAÇÃO (feito)
-
-## TRANSFORMAR VARIÁVEIS NUMERICAS EM CATEGORICAS ATRAVELS DE LEVELS (feito)
-
-### ->> BALANCEAR A VARIÁVEL ALVO USANDO A VERSÃO 8 (feito)
-
-
-#### ADICIONAR OS NOVOS ALGORITMOS DA VERSÃO 5 NA VERSÃO 8 
-
-
-##### Após escolha da melhor versão de dados -> SELEÇÃO DE VARIÁVEIS (criar um loop para testar todas as combinações)
-
-
-
-
-
-
-
 
 
 
@@ -952,14 +962,20 @@ View(modelos_params)
 
 
 
+## Possíveis Melhorias
+
+# - Experimentar com mais modelos e hiperparâmetros: Embora o projeto já inclua uma variedade de modelos, a experimentação com outros modelos avançados
+#   e a otimização de hiperparâmetros podem levar a melhorias adicionais no desempenho.
+
+# - Análise de Componentes Principais (PCA) ou outras técnicas de redução de dimensionalidade: Para ver se a redução de dimensionalidade pode melhorar
+#   o desempenho do modelo e reduzir o tempo de treinamento, mantendo a maior parte da variância explicativa.
+
+# - Explorar mais o balanceamento de dados: Experimentar com diferentes proporções de balanceamento ou outras técnicas, como ADASYN, para comparar os 
+#   resultados.
+
+# - Aprofundar a interpretação do modelo: Utilizar técnicas como SHAP (SHapley Additive exPlanations) para entender melhor como as variáveis de entrada
+#   afetam as previsões do modelo, especialmente para modelos complexos como Xgboost.
 
 
-
-# 1. Codificação One-Hot para Variáveis Categóricas FUEL
-# Embora SIZE e STATUS já estejam convertidos para fatores, FUEL sendo categórico pode se beneficiar da codificação one-hot, criando variáveis
-# binárias para cada tipo de combustível. Isso é particularmente útil para modelos que não lidam bem com variáveis categóricas.
-
-# CRIAR OUTROS MODELOS COMO XGB
-
-
+##### Após aplicação das melhorias criar um loop para testar o uso das variáveis preditoras no modelo e assim conseguir a melhor combinação
 
