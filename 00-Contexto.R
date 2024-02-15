@@ -14,7 +14,6 @@ getwd()
 # - Este script contém a história e o contexto do projeto.
 
 
-
 ## Contexto:
 
 # - O teste hidrostático extintor é um procedimento estabelecido pelas normas da ABNT NBR 12962/2016, que determinam que todos os extintores devem ser

@@ -20,6 +20,7 @@ library(readxl)         # carregar arquivos
 
 library(dplyr)          # manipulação de dados
 library(tidyr)          # manipulação de dados
+library(ROSE)           # balanceamento
 
 library(ggplot2)        # gera gráficos
 library(patchwork)      # unir gráficos
@@ -27,6 +28,9 @@ library(ROCR)           # Gerando uma curva ROC em R
 
 library(randomForest)   # carrega algoritimo de ML (randomForest)
 library(e1071)          # carrega algoritimo de ML (SVM)
+library(gbm)            # carrega algoritimo de ML (GBM)
+library(xgboost)        # carrega algoritimo de ML (XgBoost)
+library(neuralnet)      # carrega algoritimo de ML (Redes Neurais)
 
 library(caret)          # cria confusion matrix
 library(corrplot)       # análise de correlação
@@ -125,6 +129,8 @@ plot_fuel <- ggplot(dados, aes(x = FUEL, fill = STATUS)) +
 
 # Combinando os dois gráficos em um único plot
 plot_size / plot_fuel
+rm(plot_size)
+rm(plot_fuel)
 
 
 
@@ -133,6 +139,8 @@ plot_size / plot_fuel
 
 #### Criando Lista Para Armazenar Resultados dos Modelos das Versões
 resultados_modelos <- list()
+
+
 
 
 #### Versão 1
@@ -195,7 +203,7 @@ dados <- data.frame(read_xlsx("dataset/Acoustic_Extinguisher_Fire_Dataset.xlsx")
 dados <- dados[complete.cases(dados), ]
 str(dados)
 
-# - Converte As Variáveis SIZE, FUEL e a variável alvo STATUS para tipo facotr
+# - Converte As Variáveis SIZE, FUEL e a variável alvo STATUS para tipo factor
 # - Cria 1 Tipo de Modelo utilizando todas as variáveis (RandomForest)
 
 
@@ -317,8 +325,7 @@ resultados_modelos[['Versao3']] <- list(
 )
 #resultados_modelos # Acc 0.9667
 
-rm(previsoes)
-rm(conf_mat)
+rm(previsoes, conf_mat)
 
 
 
@@ -405,8 +412,7 @@ resultados_modelos[['Versao4']] <- list(
 )
 #resultados_modelos # Acc 0.9584
 
-rm(previsoes)
-rm(conf_mat)
+rm(previsoes, conf_mat)
 
 
 
@@ -444,7 +450,7 @@ rm(numeric_columns)
 
 
 
-## Criando Modelo
+## Criando Modelos
 
 # Dividindo os dados em treino e teste
 set.seed(100)
@@ -453,26 +459,83 @@ dados_treino <- dados_nor[indices, ]
 dados_teste <- dados_nor[-indices, ]
 rm(indices)
 
+
 # RandomForest
 modelo_rf <- randomForest(STATUS ~ AIRFLOW + DISTANCE + FREQUENCY + SIZE + FUEL, 
                           data = dados_treino, 
                           ntree = 100, nodesize = 10, importance = TRUE)
 
 
-## Avaliando e Visualizando Desempenho do Modelo
-previsoes <- predict(modelo_rf, newdata = dados_teste)
-conf_mat <- confusionMatrix(previsoes, dados_teste$STATUS)
-conf_mat
-resultados_modelos[['Versao5']] <- list(
-  Accuracy = round(conf_mat$overall['Accuracy'], 4),
-  Sensitivity = round(conf_mat$byClass['Sensitivity'], 4),
-  Specificity = round(conf_mat$byClass['Specificity'], 4),
-  Balanced_Accuracy = round(conf_mat$byClass['Balanced Accuracy'], 4)
-)
-#resultados_modelos # Acc 0.9624
+# SVM
+modelo_svm <- svm(STATUS ~ AIRFLOW + DISTANCE + FREQUENCY + SIZE + FUEL, 
+                  data = dados_treino, 
+                  type = "C-classification", 
+                  kernel = "radial")
 
-rm(previsoes)
-rm(conf_mat)
+
+# GLM
+modelo_glm <- glm(data = dados_treino, STATUS ~ AIRFLOW + DISTANCE + FREQUENCY + SIZE + FUEL, family = binomial(link = 'logit'))
+
+
+# Xgboost
+dados_treino_xgb <- xgb.DMatrix(data.matrix(dados_treino[,-which(names(dados_treino) == "STATUS")]), label = as.numeric(dados_treino$STATUS)-1)
+dados_teste_xgb <- xgb.DMatrix(data.matrix(dados_teste[,-which(names(dados_teste) == "STATUS")]), label = as.numeric(dados_teste$STATUS)-1)
+
+param <- list(
+  objective = "binary:logistic", # Objetivo para classificação binária
+  booster = "gbtree",            # Uso de árvores de decisão como boosters
+  eta = 0.3,                     # Taxa de aprendizado
+  max_depth = 6                  # Profundidade máxima de cada árvore
+)
+
+modelo_xgb <- xgb.train(
+  params = param,
+  data = dados_treino_xgb, 
+  nrounds = 100
+)
+rm(param)
+
+
+
+## Avaliando e Visualizando Desempenho dos Modelos
+previsoes_rf <- predict(modelo_rf, newdata = dados_teste)
+previsoes_svm <- predict(modelo_svm, newdata = dados_teste)
+previsoes_glm <- predict(modelo_glm, newdata = dados_teste, type = 'response')
+previsoes_xgb <- predict(modelo_xgb, newdata = dados_teste_xgb)
+conf_mat_rf <- confusionMatrix(previsoes_rf, dados_teste$STATUS)
+conf_mat_svm <- confusionMatrix(previsoes_svm, dados_teste$STATUS)
+conf_mat_glm <- confusionMatrix(factor(ifelse(previsoes_glm > 0.5, 1, 0)), dados_teste$STATUS)
+conf_mat_xgb <- confusionMatrix(factor(ifelse(previsoes_xgb > 0.5, 1, 0)), factor(as.numeric(dados_teste$STATUS) - 1))
+
+resultados_modelos[['Versao5_rf']] <- list(
+  Accuracy = round(conf_mat_rf$overall['Accuracy'], 4),
+  Sensitivity = round(conf_mat_rf$byClass['Sensitivity'], 4),
+  Specificity = round(conf_mat_rf$byClass['Specificity'], 4),
+  Balanced_Accuracy = round(conf_mat_rf$byClass['Balanced Accuracy'], 4)
+)
+resultados_modelos[['Versao5_svm']] <- list(
+  Accuracy = round(conf_mat_svm$overall['Accuracy'], 4),
+  Sensitivity = round(conf_mat_svm$byClass['Sensitivity'], 4),
+  Specificity = round(conf_mat_svm$byClass['Specificity'], 4),
+  Balanced_Accuracy = round(conf_mat_svm$byClass['Balanced Accuracy'], 4)
+)
+resultados_modelos[['Versao5_glm']] <- list(
+  Accuracy = round(conf_mat_glm$overall['Accuracy'], 4),
+  Sensitivity = round(conf_mat_glm$byClass['Sensitivity'], 4),
+  Specificity = round(conf_mat_glm$byClass['Specificity'], 4),
+  Balanced_Accuracy = round(conf_mat_glm$byClass['Balanced Accuracy'], 4)
+)
+resultados_modelos[['Versao5_xgb']] <- list(
+  Accuracy = round(conf_mat_xgb$overall['Accuracy'], 4),
+  Sensitivity = round(conf_mat_xgb$byClass['Sensitivity'], 4),
+  Specificity = round(conf_mat_xgb$byClass['Specificity'], 4),
+  Balanced_Accuracy = round(conf_mat_xgb$byClass['Balanced Accuracy'], 4)
+)
+
+
+rm(previsoes_rf, previsoes_svm, previsoes_glm, previsoes_xgb)
+rm(conf_mat_rf, conf_mat_svm, conf_mat_glm, conf_mat_xgb)
+rm(dados_treino_xgb, dados_teste_xgb)
 
 
 
@@ -682,19 +745,96 @@ resultados_modelos[['Versao7']] <- list(
 )
 #resultados_modelos # Acc 0.9578
 
-rm(previsoes)
-rm(conf_mat)
+rm(previsoes, conf_mat)
 
 
 
-#### Versão 8 (AutoMl)
+
+#### Versão 8
 
 ## Carregando dados
 dados <- data.frame(read_xlsx("dataset/Acoustic_Extinguisher_Fire_Dataset.xlsx"))
 dados <- dados[complete.cases(dados), ]
 str(dados)
 
-# - Utiliza Configurações das Versões 6 e 7
+# - Converte As Variáveis SIZE, FUEL e a variável alvo STATUS para tipo factor
+# - Aplica Normalização Nas Variáveis Numéricas
+# - Aplica técnica de Balanceamento da Variável Alvo
+# - Aplica Seleção de Variáveis
+# - Cria 1 Tipo de Modelo utilizando Seleção de Variáveis (RandomForest)
+
+
+## Preparação dos Dados
+
+# Convertendo as variáveis
+dados[c("SIZE", "FUEL", "STATUS")] <- lapply(dados[c("SIZE", "FUEL", "STATUS")], as.factor)
+dim(dados)
+str(dados)
+summary(dados)
+
+# Aplicando Normalização nas Variáveis Numéricas
+numeric_columns <- sapply(dados, is.numeric)
+dados_nor <- dados %>%
+  mutate(across(where(is.numeric), ~ scale(., center = min(.), scale = max(.) - min(.))))
+rm(numeric_columns)
+
+# Reverter Normalização
+# dados_revertidos <- dados_nor %>%
+#   mutate(across(where(is.numeric), ~ (. * (max(dados[, cur_column()]) - min(dados[, cur_column()])) + min(dados[, cur_column()]))))
+
+
+# Balanceamento da Variável Alvo
+
+# Aplicando o SMOTE para balancear a variável alvo
+table(dados_nor$STATUS)
+dados_balanceados <- ovun.sample(STATUS ~ ., data = dados_nor, method = "over", N = 2*max(table(dados$STATUS)))$data
+
+# Verificando a distribuição da variável alvo após o balanceamento
+table(dados_balanceados$STATUS)
+
+
+
+## Criando Modelo
+
+# Dividindo os dados em treino e teste
+set.seed(100)
+indices <- createDataPartition(dados_balanceados$STATUS, p = 0.80, list = FALSE)
+dados_treino <- dados_balanceados[indices, ]
+dados_teste <- dados_balanceados[-indices, ]
+rm(indices)
+
+# RandomForest
+modelo_rf <- randomForest(STATUS ~ AIRFLOW + DISTANCE + FREQUENCY + SIZE + FUEL, 
+                          data = dados_treino, 
+                          ntree = 100, nodesize = 10, importance = TRUE)
+
+
+## Avaliando e Visualizando Desempenho do Modelo
+previsoes <- predict(modelo_rf, newdata = dados_teste)
+conf_mat <- confusionMatrix(previsoes, dados_teste$STATUS)
+conf_mat
+resultados_modelos[['Versao8']] <- list(
+  Accuracy = round(conf_mat$overall['Accuracy'], 4),
+  Sensitivity = round(conf_mat$byClass['Sensitivity'], 4),
+  Specificity = round(conf_mat$byClass['Specificity'], 4),
+  Balanced_Accuracy = round(conf_mat$byClass['Balanced Accuracy'], 4)
+)
+# resultados_modelos # Acc 0.9717
+
+rm(previsoes, conf_mat)
+
+
+
+
+
+#### Versão 9 (AutoMl)
+
+## Carregando dados
+dados <- data.frame(read_xlsx("dataset/Acoustic_Extinguisher_Fire_Dataset.xlsx"))
+dados <- dados[complete.cases(dados), ]
+str(dados)
+
+# - Utiliza Configurações da Versão 2 (apenas modificar as variáveis chr para tipo factor)
 # - Adiciona AutoMl
 
 
@@ -711,23 +851,6 @@ dados[c("SIZE", "FUEL", "STATUS")] <- lapply(dados[c("SIZE", "FUEL", "STATUS")],
 dim(dados)
 str(dados)
 summary(dados)
-
-# Adicionando Novas Variáveis de Relação (.Machine$double.eps = pequeno valor (conhecido como epsilon) ao denominador para garantir que nunca seja zero.)
-
-# 1. Relação Entre DISTANCE e AIRFLOW
-dados$Dist_Airflow_Ratio <- dados$DISTANCE / (dados$AIRFLOW + .Machine$double.eps)
-
-# 2. Produto de DESIBEL e FREQUENCY
-dados$Desibel_Freq_Product <- dados$DESIBEL * dados$FREQUENCY
-
-# 3. Relação Inversa Entre FREQUENCY e AIRFLOW
-dados$Freq_Airflow_Inverse <- dados$FREQUENCY / (dados$AIRFLOW + .Machine$double.eps)
-
-# 4. Agrupamento de DISTANCE
-dados$Distance_Category <- cut(dados$DISTANCE, breaks=c(0, 50, 100, 150, Inf), labels=c("Close", "Moderate", "Far", "Very Far"), include.lowest=TRUE)
-
-# 5. Logaritmo de DESIBEL
-dados$Desibel_Log <- log(dados$DESIBEL + .Machine$double.eps)
 
 
 ## Automl
@@ -748,66 +871,39 @@ h2o_frame_split
 modelo_automl <- h2o.automl(y = 'STATUS',                                      # Nome da variável alvo atualizado para 'STATUS'
                             training_frame = h2o_frame_split[[1]],             # Conjunto de dados de treinamento
                             leaderboard_frame = h2o_frame_split[[2]],          # Conjunto de dados para a leaderboard
-                            max_runtime_secs = 60 * 15,
-                            sort_metric = "AUC")                               # Mudança da métrica de avaliação para AUC, adequada para classificação
-
-modelo_automl2 <- h2o.automl(y = 'STATUS',                                    # Nome da variável alvo atualizado para 'STATUS'
-                            training_frame = h2o_frame_split[[1]],             # Conjunto de dados de treinamento
-                            leaderboard_frame = h2o_frame_split[[2]],          # Conjunto de dados para a leaderboard
-                            max_runtime_secs = 60 * 60,
+                            max_runtime_secs = 60 * 10,
                             sort_metric = "AUC")                               # Mudança da métrica de avaliação para AUC, adequada para classificação
 
 
 # Extrai o leaderboard (dataframe com os modelos criados)
-leaderboard_automl2 <- as.data.frame(modelo_automl2@leaderboard)
+leaderboard_automl <- as.data.frame(modelo_automl@leaderboard)
 head(leaderboard_automl, 3)
 View(leaderboard_automl)
 
 
-# Extrai o líder (modelo com melhor performance)
-lider_automl2 <- modelo_automl2@leader
-print(lider_automl)
-View(lider_automl)
+# Extrai os líderes (modelo com melhor performance)
+lider_automl_gbm <- modelo_automl@leader
+print(lider_automl_gbm)
+lider_automl_sta <- h2o.getModel(leaderboard_automl$model_id[2])
+print(lider_automl_sta)
+lider_automl_xgb <- h2o.getModel(leaderboard_automl$model_id[21])
+print(lider_automl_xgb)
+
+# Salvando os Modelos
+# h2o.saveModel(lider_automl_gbm, path = "modelos", force = TRUE)
+# h2o.saveModel(lider_automl_sta, path = "modelos", force = TRUE)
+# h2o.saveModel(lider_automl_xgb, path = "modelos", force = TRUE)
+
+# Carregando os Modelos
+modelo_gbm <- h2o.loadModel(path = "modelos/GBM_grid_1_AutoML_1_20240215_131817_model_19")
+modelo_sta <- h2o.loadModel(path = "modelos/StackedEnsemble_BestOfFamily_4_AutoML_1_20240215_131817")
+modelo_xgb <- h2o.loadModel(path = "modelos/XGBoost_2_AutoML_1_20240215_131817")
+
 
 # Avaliação dos Modelos
-h2o.performance(lider_automl2, newdata = h2o_frame_split[[2]])
-
-## Calcular Acurácia
-
-# Obtendo predições probabilísticas para o conjunto de teste
-predicoes_prob <- h2o.predict(lider_automl2, h2o_frame_split[[2]])
-
-# As predições são retornadas com uma coluna para cada classe, assumindo que a segunda coluna é a probabilidade da classe positiva
-# Para binário, geralmente, é "predict", "p0" para classe negativa, e "p1" para classe positiva
-probabilidades <- as.vector(predicoes_prob$p1)  # Extrai probabilidades da classe positiva
-
-# Aplicando o limiar ótimo para determinar as predições de classe
-predicoes_classificacao <- ifelse(probabilidades > optimal_threshold2, 1, 0)
-
-# Convertendo o conjunto de teste para um dataframe para facilitar a comparação
-df_teste <- as.data.frame(h2o_frame_split[[2]])
-
-# Calculando a acurácia: comparação das predições de classe com os valores reais
-acuracia <- mean(predicoes_classificacao == as.numeric(as.character(df_teste$STATUS)))  # Garantindo comparação numérica
-
-# Imprimindo a acurácia
-print(paste("Acurácia: ", acuracia))
-
-
-
-# Agora, usar o valor de threshold para calcular a acurácia
-accuracy <- h2o.accuracy(perf2, threshold = optimal_threshold)[1]
-accuracy
-
-
-
-
-
-# Avaliação Modelo AutoMl 1
-# accuracy: 0.9832954
-
-# Avaliação Modelo AutoMl 1
-# accuracy: 0.986481411941419
+h2o.performance(modelo_gbm, newdata = h2o_frame_split[[2]])  # AUC:  0.9987656
+h2o.performance(modelo_sta, newdata = h2o_frame_split[[2]])  # AUC:  0.9987226
+h2o.performance(modelo_xgb, newdata = h2o_frame_split[[2]])  # AUC:  0.9973968
 
 
 h2o.shutdown()
@@ -815,7 +911,7 @@ h2o.shutdown()
 
 
 
-
+modelo_gbm
 
 
 
@@ -824,12 +920,15 @@ h2o.shutdown()
 # NORMALIZAR VALORES NUMÉRICOS (feito)
 # CRIAR NOVAS VARIAVEIS DE RELAÇÃO (feito)
 
-# TRANSFORMAR VARIAVSEIS NUMERICAS EM CATEGORICAS ATRAVELS DE LEVELS (feito)
+## TRANSFORMAR VARIÁVEIS NUMERICAS EM CATEGORICAS ATRAVELS DE LEVELS (feito)
 
-### ->> BALANCEAR A VARIÁVEL ALVO USANDO A VERSÃO 7 OU 8
-### ->> Aplicar Tratamento de Outliers
+### ->> BALANCEAR A VARIÁVEL ALVO USANDO A VERSÃO 8 (feito)
 
-### Após escolha da melhor versão de dados -> SELEÇÃO DE VARIÁVEIS (criar um loop para testar todas as combinações)
+
+#### ADICIONAR OS NOVOS ALGORITMOS DA VERSÃO 5 NA VERSÃO 8 
+
+
+##### Após escolha da melhor versão de dados -> SELEÇÃO DE VARIÁVEIS (criar um loop para testar todas as combinações)
 
 
 
@@ -860,40 +959,7 @@ View(modelos_params)
 # Embora SIZE e STATUS já estejam convertidos para fatores, FUEL sendo categórico pode se beneficiar da codificação one-hot, criando variáveis
 # binárias para cada tipo de combustível. Isso é particularmente útil para modelos que não lidam bem com variáveis categóricas.
 
-# 2. Padronização de Variáveis Numéricas (versao 5)
-# Variáveis como DISTANCE, DESIBEL, AIRFLOW, e FREQUENCY devem ser padronizadas para ter uma média de 0 e um desvio padrão de 1.
-# Isso é especialmente útil para algoritmos sensíveis à escala das variáveis, como SVM ou kNN.
-
-# 3. Engenharia de Atributos (versao 4)
-# Atributos Polinomiais e de Interação: Considere criar atributos polinomiais para capturar relações não lineares, bem como atributos de 
-#                                       interação entre variáveis como DISTANCE * AIRFLOW ou DESIBEL * FREQUENCY.
-# Agrupamento por SIZE ou FUEL: Use métodos de agrupamento para identificar padrões dentro de cada categoria de SIZE ou FUEL e criar novas 
-#                               variáveis que representem esses grupos.
-
-# 4. Seleção de Atributos (versao 3 e 5)
-# Utilize técnicas como importância de variáveis do Random Forest, análise de componentes principais (PCA) para redução de dimensionalidade, 
-# ou seleção de variáveis baseada em modelos (como LASSO) para identificar e reter apenas as variáveis mais relevantes.
-
-# 5. Tratamento de Dados Desbalanceados
-# A variável alvo STATUS parece estar relativamente balanceada, mas se houver desbalanceamento em novos dados, técnicas como SMOTE para
-# oversampling da classe minoritária ou técnicas de undersampling da classe majoritária podem ser consideradas.
-
-# 6. Validação Cruzada Estratificada
-# Ao dividir os dados em conjuntos de treino e teste, use a validação cruzada estratificada para garantir que a proporção da variável alvo
-# STATUS seja mantida em todos os conjuntos. Isso é importante para modelos de classificação em dados desbalanceados.
-
-# 7. Análise de Correlação
-# Realize uma análise de correlação entre as variáveis numéricas e com a variável alvo para identificar possíveis relações lineares fortes que
-# possam ser exploradas ou que indiquem redundância entre variáveis.
-
-# 8. Tratamento de Outliers
-# Analise a distribuição das variáveis numéricas para identificar e tratar outliers, se necessário, o que pode melhorar a performance do modelo.
-
-# Implementando essas melhorias e estratégias de transformação, você pode aumentar a capacidade do modelo de capturar a complexidade dos dados 
-# e, potencialmente, melhorar a precisão na previsão da eficácia dos extintores de incêndio.
-
-
-
+# CRIAR OUTROS MODELOS COMO XGB
 
 
 
