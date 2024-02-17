@@ -31,6 +31,10 @@ library(e1071)          # carrega algoritimo de ML (SVM)
 library(gbm)            # carrega algoritimo de ML (GBM)
 library(xgboost)        # carrega algoritimo de ML (XgBoost)
 library(neuralnet)      # carrega algoritimo de ML (Redes Neurais)
+library(class)          # carrega algoritimo de ML (k-NN)
+library(rpart)          # carrega algoritimo de ML (Decision Trees)
+library(e1071)          # carrega algoritimo de ML (Naive Bayes)
+
 
 library(caret)          # cria confusion matrix
 library(corrplot)       # análise de correlação
@@ -791,6 +795,7 @@ modelo_rf <- randomForest(STATUS ~ AIRFLOW + DISTANCE + FREQUENCY + SIZE + FUEL,
                           ntree = 100, nodesize = 10, importance = TRUE)
 
 
+
 # SVM
 modelo_svm <- svm(STATUS ~ AIRFLOW + DISTANCE + FREQUENCY + SIZE + FUEL, 
                   data = dados_treino, 
@@ -798,8 +803,10 @@ modelo_svm <- svm(STATUS ~ AIRFLOW + DISTANCE + FREQUENCY + SIZE + FUEL,
                   kernel = "radial")
 
 
+
 # GLM
 modelo_glm <- glm(data = dados_treino, STATUS ~ AIRFLOW + DISTANCE + FREQUENCY + SIZE + FUEL, family = binomial(link = 'logit'))
+
 
 
 # Xgboost
@@ -818,19 +825,120 @@ modelo_xgb <- xgb.train(
   data = dados_treino_xgb, 
   nrounds = 100
 )
+modelo_xgb
 rm(param)
+
+
+# Xgboost v2
+dados_treino_xgb <- xgb.DMatrix(data.matrix(dados_treino[,-which(names(dados_treino) == "STATUS")]), label = as.numeric(dados_treino$STATUS)-1)
+dados_teste_xgb <- xgb.DMatrix(data.matrix(dados_teste[,-which(names(dados_teste) == "STATUS")]), label = as.numeric(dados_teste$STATUS)-1)
+
+# Definindo um conjunto expandido de parâmetros para a busca em grade
+gridsearch_params <- expand.grid(
+  eta = c(0.05, 0.1, 0.2),            # Taxas de aprendizado
+  max_depth = c(3, 6, 9),             # Profundidades máximas
+  min_child_weight = c(1, 3, 5),      # Peso mínimo das instâncias nos filhos
+  subsample = c(0.6, 0.8, 1.0),       # Subamostra das observações
+  colsample_bytree = c(0.6, 0.8, 1.0),# Subamostra de colunas para cada árvore
+  lambda = c(1, 1.5),                 # Termo de regularização L2 nas folhas
+  alpha = c(0, 0.5)                   # Termo de regularização L1 nas folhas
+)
+# Calculando o número total de iterações
+print(paste("Número total de iterações:", nrow(gridsearch_params)))
+
+# Preparando um dataframe para armazenar os resultados
+cv_results <- data.frame()
+
+# Loop sobre os parâmetros do gridsearch para teste rápido
+for(i in 1:nrow(gridsearch_params)) {
+  params <- list(
+    objective = "binary:logistic",
+    booster = "gbtree",
+    eta = gridsearch_params$eta[i],
+    max_depth = gridsearch_params$max_depth[i],
+    min_child_weight = gridsearch_params$min_child_weight[i],
+    subsample = gridsearch_params$subsample[i],
+    colsample_bytree = gridsearch_params$colsample_bytree[i],
+    lambda = gridsearch_params$lambda[i],
+    alpha = gridsearch_params$alpha[i]
+  )
+  
+  cv <- xgb.cv(
+    params = params,
+    data = dados_treino_xgb,
+    nrounds = 100, 
+    nfold = 5,    
+    metrics = "logloss",
+    showsd = TRUE,
+    stratified = TRUE,
+    print_every_n = 1,
+    early_stopping_rounds = 3,
+    maximize = FALSE
+  )
+  
+  # Capturando os melhores resultados
+  best_score <- min(cv$evaluation_log$test_logloss_mean)
+  best_iteration <- cv$best_iteration
+  
+  # Adicionando os resultados ao dataframe
+  cv_results <- rbind(cv_results, cbind(gridsearch_params[i, ], best_score, best_iteration))
+}
+
+# Ajustando os nomes das colunas do dataframe de resultados
+colnames(cv_results) <- c('eta', 'max_depth', 'min_child_weight', 'subsample', 'colsample_bytree', 'lambda', 'alpha', 'best_score', 'best_iteration')
+
+# Imprimindo os resultados da otimização rápida
+print(cv_results)
+
+
+
+
+
+
+
+
+
+
+
+
+# k-Nearest Neighbors (k-NN)
+dados_treino_dummy <- model.matrix(~ . -1 -STATUS, data = dados_treino)
+dados_teste_dummy <- model.matrix(~ . -1 -STATUS, data = dados_teste)
+
+modelo_knn <- knn(train = dados_treino_dummy, test = dados_teste_dummy, cl = dados_treino$STATUS, k = 5)
+
+
+
+# Naive Bayes
+dados_treino_dummy <- model.matrix(~ . -1 -STATUS, data = dados_treino)
+dados_teste_dummy <- model.matrix(~ . -1 -STATUS, data = dados_teste)
+
+modelo_nai <- naiveBayes(dados_treino_dummy, as.factor(dados_treino$STATUS))
+
+
+
+# Decision Trees
+set.seed(100)
+modelo_tre <- rpart(STATUS ~ ., data = dados_treino, method = "class")
+
 
 
 
 ## Avaliando e Visualizando Desempenho dos Modelos
+
 previsoes_rf <- predict(modelo_rf, newdata = dados_teste)
 previsoes_svm <- predict(modelo_svm, newdata = dados_teste)
 previsoes_glm <- predict(modelo_glm, newdata = dados_teste, type = 'response')
 previsoes_xgb <- predict(modelo_xgb, newdata = dados_teste_xgb)
+previsoes_nai <- predict(modelo_nai, dados_teste_dummy)
+previsoes_tre <- predict(modelo_tre, dados_teste, type = "class")
 conf_mat_rf <- confusionMatrix(previsoes_rf, dados_teste$STATUS)
 conf_mat_svm <- confusionMatrix(previsoes_svm, dados_teste$STATUS)
 conf_mat_glm <- confusionMatrix(factor(ifelse(previsoes_glm > 0.5, 1, 0)), dados_teste$STATUS)
 conf_mat_xgb <- confusionMatrix(factor(ifelse(previsoes_xgb > 0.5, 1, 0)), factor(as.numeric(dados_teste$STATUS) - 1))
+conf_mat_knn <- confusionMatrix(modelo_knn, dados_teste$STATUS)
+conf_mat_nai <- confusionMatrix(previsoes_nai, dados_teste$STATUS)
+conf_mat_tre <- confusionMatrix(previsoes_tre, dados_teste$STATUS)
 
 resultados_modelos[['Versao8_rf']] <- list(
   Accuracy = round(conf_mat_rf$overall['Accuracy'], 4),
@@ -856,11 +964,31 @@ resultados_modelos[['Versao8_xgb']] <- list(
   Specificity = round(conf_mat_xgb$byClass['Specificity'], 4),
   Balanced_Accuracy = round(conf_mat_xgb$byClass['Balanced Accuracy'], 4)
 )
+resultados_modelos[['Versao8_knn']] <- list(
+  Accuracy = round(conf_mat_knn$overall['Accuracy'], 4),
+  Sensitivity = round(conf_mat_knn$byClass['Sensitivity'], 4),
+  Specificity = round(conf_mat_knn$byClass['Specificity'], 4),
+  Balanced_Accuracy = round(conf_mat_knn$byClass['Balanced Accuracy'], 4)
+)
+resultados_modelos[['Versao8_nai']] <- list(
+  Accuracy = round(conf_mat_nai$overall['Accuracy'], 4),
+  Sensitivity = round(conf_mat_nai$byClass['Sensitivity'], 4),
+  Specificity = round(conf_mat_nai$byClass['Specificity'], 4),
+  Balanced_Accuracy = round(conf_mat_nai$byClass['Balanced Accuracy'], 4)
+)
+resultados_modelos[['Versao8_tre']] <- list(
+  Accuracy = round(conf_mat_tre$overall['Accuracy'], 4),
+  Sensitivity = round(conf_mat_tre$byClass['Sensitivity'], 4),
+  Specificity = round(conf_mat_tre$byClass['Specificity'], 4),
+  Balanced_Accuracy = round(conf_mat_tre$byClass['Balanced Accuracy'], 4)
+)
+
 
 
 rm(previsoes_rf, previsoes_svm, previsoes_glm, previsoes_xgb)
 rm(conf_mat_rf, conf_mat_svm, conf_mat_glm, conf_mat_xgb)
 rm(dados_treino_xgb, dados_teste_xgb)
+
 
 
 
@@ -951,6 +1079,10 @@ h2o.shutdown()
 
 
 
+
+
+
+
 ## Adicionando Resultados das Versões em um DataFrame
 modelos_params <- do.call(rbind, lapply(resultados_modelos, function(x) data.frame(t(unlist(x))))) # Convertendo a lista de resultados em um dataframe
 modelos_params
@@ -966,16 +1098,6 @@ View(modelos_params)
 
 # - Experimentar com mais modelos e hiperparâmetros: Embora o projeto já inclua uma variedade de modelos, a experimentação com outros modelos avançados
 #   e a otimização de hiperparâmetros podem levar a melhorias adicionais no desempenho.
-
-# - Análise de Componentes Principais (PCA) ou outras técnicas de redução de dimensionalidade: Para ver se a redução de dimensionalidade pode melhorar
-#   o desempenho do modelo e reduzir o tempo de treinamento, mantendo a maior parte da variância explicativa.
-
-# - Explorar mais o balanceamento de dados: Experimentar com diferentes proporções de balanceamento ou outras técnicas, como ADASYN, para comparar os 
-#   resultados.
-
-# - Aprofundar a interpretação do modelo: Utilizar técnicas como SHAP (SHapley Additive exPlanations) para entender melhor como as variáveis de entrada
-#   afetam as previsões do modelo, especialmente para modelos complexos como Xgboost.
-
 
 ##### Após aplicação das melhorias criar um loop para testar o uso das variáveis preditoras no modelo e assim conseguir a melhor combinação
 
