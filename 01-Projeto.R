@@ -916,7 +916,6 @@ modelo_xgb2 <- xgb.train(
 )
 
 
-
 # Xgboost v3 (buscando melhores hiperparâmetros + loop seleção de variáveis)
 dados_treino_xgb <- xgb.DMatrix(data.matrix(dados_treino[,-which(names(dados_treino) == "STATUS")]), label = as.numeric(dados_treino$STATUS)-1)
 dados_teste_xgb <- xgb.DMatrix(data.matrix(dados_teste[,-which(names(dados_teste) == "STATUS")]), label = as.numeric(dados_teste$STATUS)-1)
@@ -976,7 +975,7 @@ for(i in seq_along(combinacoes)) {
   # Adicionando os resultados ao dataframe
   resultados <- rbind(resultados, data.frame(combinacao = paste(combinacoes[[i]], collapse = " + "), Accuracy = accuracy, Sensitivity = sensitivity, Specificity = specificity, Balanced_Accuracy = balanced_accuracy))
 }
-
+str(dados)
 # Ordenando os resultados por uma métrica, por exemplo, Balanced_Accuracy
 resultados_ordenados <- resultados[order(-resultados$Balanced_Accuracy), ]
 head(resultados_ordenados)
@@ -1129,6 +1128,10 @@ rm(conf_mat_rf, conf_mat_svm, conf_mat_glm, conf_mat_xgb)
 rm(dados_treino_xgb, dados_teste_xgb)
 
 
+## Salvando Modelo
+xgb.save(modelo_xgb3, 'modelos/modelo_xgb3.model')
+
+
 
 
 ## Adicionando Resultados das Versões em um DataFrame
@@ -1144,90 +1147,3 @@ View(modelos_params)
 
 
 
-
-
-
-
-
-
-# #### Versão 9 (AutoMl)
-# 
-# ## Carregando dados
-# dados <- data.frame(read_xlsx("dataset/Acoustic_Extinguisher_Fire_Dataset.xlsx"))
-# dados <- dados[complete.cases(dados), ]
-# str(dados)
-# 
-# # - Utiliza Configurações da Versão 2 (apenas modificar as variáveis chr para tipo factor)
-# # - Adiciona AutoMl
-# 
-# 
-# ## Carregando dados
-# dados <- data.frame(read_xlsx("dataset/Acoustic_Extinguisher_Fire_Dataset.xlsx"))
-# dados <- dados[complete.cases(dados), ]
-# str(dados)
-# 
-# 
-# ## Preparação dos Dados
-# 
-# # Convertendo as variáveis
-# dados[c("SIZE", "FUEL", "STATUS")] <- lapply(dados[c("SIZE", "FUEL", "STATUS")], as.factor)
-# dim(dados)
-# str(dados)
-# summary(dados)
-# 
-# 
-# ## Automl
-# 
-# # Inicializando o H2O (Framework de Machine Learning)
-# h2o.init()
-# 
-# # O H2O requer que os dados estejam no formato de dataframe do H2O
-# h2o_frame <- as.h2o(dados)
-# class(h2o_frame)
-# 
-# # Split dos dados em treino e teste (cria duas listas)
-# h2o_frame_split <- h2o.splitFrame(h2o_frame, ratios = 0.85)
-# head(h2o_frame_split)
-# h2o_frame_split
-# 
-# 
-# modelo_automl <- h2o.automl(y = 'STATUS',                                      # Nome da variável alvo atualizado para 'STATUS'
-#                             training_frame = h2o_frame_split[[1]],             # Conjunto de dados de treinamento
-#                             leaderboard_frame = h2o_frame_split[[2]],          # Conjunto de dados para a leaderboard
-#                             max_runtime_secs = 60 * 10,
-#                             sort_metric = "AUC")                               # Mudança da métrica de avaliação para AUC, adequada para classificação
-# 
-# 
-# # Extrai o leaderboard (dataframe com os modelos criados)
-# leaderboard_automl <- as.data.frame(modelo_automl@leaderboard)
-# head(leaderboard_automl, 3)
-# View(leaderboard_automl)
-# 
-# 
-# # Extrai os líderes (modelo com melhor performance)
-# lider_automl_gbm <- modelo_automl@leader
-# print(lider_automl_gbm)
-# lider_automl_sta <- h2o.getModel(leaderboard_automl$model_id[2])
-# print(lider_automl_sta)
-# lider_automl_xgb <- h2o.getModel(leaderboard_automl$model_id[21])
-# print(lider_automl_xgb)
-# 
-# # Salvando os Modelos
-# # h2o.saveModel(lider_automl_gbm, path = "modelos", force = TRUE)
-# # h2o.saveModel(lider_automl_sta, path = "modelos", force = TRUE)
-# # h2o.saveModel(lider_automl_xgb, path = "modelos", force = TRUE)
-# 
-# # Carregando os Modelos
-# modelo_gbm <- h2o.loadModel(path = "modelos/GBM_grid_1_AutoML_1_20240215_131817_model_19")
-# modelo_sta <- h2o.loadModel(path = "modelos/StackedEnsemble_BestOfFamily_4_AutoML_1_20240215_131817")
-# modelo_xgb <- h2o.loadModel(path = "modelos/XGBoost_2_AutoML_1_20240215_131817")
-# 
-# 
-# # Avaliação dos Modelos
-# h2o.performance(modelo_gbm, newdata = h2o_frame_split[[2]])  # AUC:  0.9987656
-# h2o.performance(modelo_sta, newdata = h2o_frame_split[[2]])  # AUC:  0.9987226
-# h2o.performance(modelo_xgb, newdata = h2o_frame_split[[2]])  # AUC:  0.9973968
-# 
-# 
-# # Desligar h2o
-# h2o.shutdown()
