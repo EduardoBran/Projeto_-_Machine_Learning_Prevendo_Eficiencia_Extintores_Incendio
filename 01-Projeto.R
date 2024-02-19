@@ -829,76 +829,201 @@ modelo_xgb
 rm(param)
 
 
-# Xgboost v2
+# Xgboost v2 (buscando melhores hiperparâmetros)
 dados_treino_xgb <- xgb.DMatrix(data.matrix(dados_treino[,-which(names(dados_treino) == "STATUS")]), label = as.numeric(dados_treino$STATUS)-1)
 dados_teste_xgb <- xgb.DMatrix(data.matrix(dados_teste[,-which(names(dados_teste) == "STATUS")]), label = as.numeric(dados_teste$STATUS)-1)
 
 # Definindo um conjunto expandido de parâmetros para a busca em grade
-gridsearch_params <- expand.grid(
-  eta = c(0.05, 0.1, 0.2),            # Taxas de aprendizado
-  max_depth = c(3, 6, 9),             # Profundidades máximas
-  min_child_weight = c(1, 3, 5),      # Peso mínimo das instâncias nos filhos
-  subsample = c(0.6, 0.8, 1.0),       # Subamostra das observações
-  colsample_bytree = c(0.6, 0.8, 1.0),# Subamostra de colunas para cada árvore
-  lambda = c(1, 1.5),                 # Termo de regularização L2 nas folhas
-  alpha = c(0, 0.5)                   # Termo de regularização L1 nas folhas
+# gridsearch_params <- expand.grid(
+#   eta = c(0.05, 0.1, 0.2),            # Taxas de aprendizado
+#   max_depth = c(3, 6, 9),             # Profundidades máximas
+#   min_child_weight = c(1, 3, 5),      # Peso mínimo das instâncias nos filhos
+#   subsample = c(0.6, 0.8, 1.0),       # Subamostra das observações
+#   colsample_bytree = c(0.6, 0.8, 1.0),# Subamostra de colunas para cada árvore
+#   lambda = c(1, 1.5),                 # Termo de regularização L2 nas folhas
+#   alpha = c(0, 0.5)                   # Termo de regularização L1 nas folhas
+# )
+# # Calculando o número total de iterações
+# print(paste("Número total de iterações:", nrow(gridsearch_params)))
+# 
+# # Preparando um dataframe para armazenar os resultados
+# cv_results <- data.frame()
+# 
+# # Loop sobre os parâmetros do gridsearch para teste rápido
+# for(i in 1:nrow(gridsearch_params)) {
+#   params <- list(
+#     objective = "binary:logistic",
+#     booster = "gbtree",
+#     eta = gridsearch_params$eta[i],
+#     max_depth = gridsearch_params$max_depth[i],
+#     min_child_weight = gridsearch_params$min_child_weight[i],
+#     subsample = gridsearch_params$subsample[i],
+#     colsample_bytree = gridsearch_params$colsample_bytree[i],
+#     lambda = gridsearch_params$lambda[i],
+#     alpha = gridsearch_params$alpha[i]
+#   )
+#   
+#   cv <- xgb.cv(
+#     params = params,
+#     data = dados_treino_xgb,
+#     nrounds = 100, 
+#     nfold = 5,    
+#     metrics = "logloss",
+#     showsd = TRUE,
+#     stratified = TRUE,
+#     print_every_n = 1,
+#     early_stopping_rounds = 3,
+#     maximize = FALSE
+#   )
+#   
+#   # Capturando os melhores resultados
+#   best_score <- min(cv$evaluation_log$test_logloss_mean)
+#   best_iteration <- cv$best_iteration
+#   
+#   # Adicionando os resultados ao dataframe
+#   cv_results <- rbind(cv_results, cbind(gridsearch_params[i, ], best_score, best_iteration))
+# }
+# 
+# # Ajustando os nomes das colunas do dataframe de resultados
+# colnames(cv_results) <- c('eta', 'max_depth', 'min_child_weight', 'subsample', 'colsample_bytree', 'lambda', 'alpha', 'best_score', 'best_iteration')
+# 
+# # Imprimindo os resultados da otimização rápida
+# print(cv_results)
+# View(cv_results[which.min(cv_results$best_score), ])
+
+
+# write.csv(cv_results, "cv_results.csv")
+
+
+# Definindo os hiperparâmetros otimizados com base no resultado da busca em grade
+optimized_params <- list(
+  booster = "gbtree",
+  eta = 0.172,
+  max_depth = 9,
+  min_child_weight = 1,
+  subsample = 1,
+  colsample_bytree = 1,
+  lambda = 1,
+  alpha = 0.5,
+  objective = "binary:logistic"
 )
-# Calculando o número total de iterações
-print(paste("Número total de iterações:", nrow(gridsearch_params)))
 
-# Preparando um dataframe para armazenar os resultados
-cv_results <- data.frame()
+# Treinando o modelo XGBoost com os hiperparâmetros otimizados
+modelo_xgb2 <- xgb.train(
+  params = optimized_params,
+  data = dados_treino_xgb,
+  nrounds = 100
+)
 
-# Loop sobre os parâmetros do gridsearch para teste rápido
-for(i in 1:nrow(gridsearch_params)) {
-  params <- list(
-    objective = "binary:logistic",
-    booster = "gbtree",
-    eta = gridsearch_params$eta[i],
-    max_depth = gridsearch_params$max_depth[i],
-    min_child_weight = gridsearch_params$min_child_weight[i],
-    subsample = gridsearch_params$subsample[i],
-    colsample_bytree = gridsearch_params$colsample_bytree[i],
-    lambda = gridsearch_params$lambda[i],
-    alpha = gridsearch_params$alpha[i]
+
+
+# Xgboost v3 (buscando melhores hiperparâmetros + loop seleção de variáveis)
+dados_treino_xgb <- xgb.DMatrix(data.matrix(dados_treino[,-which(names(dados_treino) == "STATUS")]), label = as.numeric(dados_treino$STATUS)-1)
+dados_teste_xgb <- xgb.DMatrix(data.matrix(dados_teste[,-which(names(dados_teste) == "STATUS")]), label = as.numeric(dados_teste$STATUS)-1)
+
+# Preparar os resultados DataFrame para armazenar os resultados de cada combinação
+resultados <- data.frame(combinacao = character(), Accuracy = numeric(), Sensitivity = numeric(), Specificity = numeric(), Balanced_Accuracy = numeric(), stringsAsFactors = FALSE)
+
+# Lista de todas as variáveis preditoras possíveis, excluindo a variável alvo 'STATUS'
+variaveis <- setdiff(names(dados_treino), "STATUS")
+
+# Criar todas as combinações possíveis das variáveis preditoras
+combinacoes <- unlist(lapply(1:length(variaveis), function(n) combn(variaveis, n, simplify = FALSE)), recursive = FALSE)
+
+# Loop através de cada combinação de variáveis
+for(i in seq_along(combinacoes)) {
+  # Selecionando colunas para a combinação atual, incluindo a variável alvo 'STATUS'
+  cols_atual <- c(combinacoes[[i]], "STATUS")
+  
+  # Preparando os dados de treino e teste para a combinação atual
+  dados_treino_atual <- dados_treino[cols_atual]
+  dados_teste_atual <- dados_teste[cols_atual]
+  
+  # Convertendo fatores para variáveis dummy
+  dados_treino_matriz <- model.matrix(~ . - STATUS, data = dados_treino_atual)
+  dados_teste_matriz <- model.matrix(~ . - STATUS, data = dados_teste_atual)
+  
+  # Labels
+  labels_treino <- as.numeric(dados_treino_atual$STATUS) - 1
+  labels_teste <- as.numeric(dados_teste_atual$STATUS) - 1
+  
+  # Convertendo para formato xgb.DMatrix
+  dados_treino_xgb_atual <- xgb.DMatrix(data = dados_treino_matriz, label = labels_treino)
+  dados_teste_xgb_atual <- xgb.DMatrix(data = dados_teste_matriz, label = labels_teste)
+  
+  # Treinando o modelo XGBoost com os hiperparâmetros otimizados
+  modelo_atual <- xgb.train(
+    params = optimized_params,
+    data = dados_treino_xgb_atual,
+    nrounds = 100
   )
   
-  cv <- xgb.cv(
-    params = params,
-    data = dados_treino_xgb,
-    nrounds = 100, 
-    nfold = 5,    
-    metrics = "logloss",
-    showsd = TRUE,
-    stratified = TRUE,
-    print_every_n = 1,
-    early_stopping_rounds = 3,
-    maximize = FALSE
-  )
+  # Realizar previsões no conjunto de teste
+  previsoes <- predict(modelo_atual, newdata = dados_teste_xgb_atual)
   
-  # Capturando os melhores resultados
-  best_score <- min(cv$evaluation_log$test_logloss_mean)
-  best_iteration <- cv$best_iteration
+  # Convertendo previsões em fatores para uso com confusionMatrix
+  previsoes_fator <- factor(ifelse(previsoes > 0.5, 1, 0), levels = c(0, 1))
+  status_real <- factor(labels_teste, levels = c(0, 1))
+  
+  # Utilizando confusionMatrix para calcular as métricas de desempenho
+  conf_mat <- confusionMatrix(previsoes_fator, status_real)
+  
+  accuracy <- conf_mat$overall['Accuracy']
+  sensitivity <- conf_mat$byClass['Sensitivity']
+  specificity <- conf_mat$byClass['Specificity']
+  balanced_accuracy <- (sensitivity + specificity) / 2
   
   # Adicionando os resultados ao dataframe
-  cv_results <- rbind(cv_results, cbind(gridsearch_params[i, ], best_score, best_iteration))
+  resultados <- rbind(resultados, data.frame(combinacao = paste(combinacoes[[i]], collapse = " + "), Accuracy = accuracy, Sensitivity = sensitivity, Specificity = specificity, Balanced_Accuracy = balanced_accuracy))
 }
 
-# Ajustando os nomes das colunas do dataframe de resultados
-colnames(cv_results) <- c('eta', 'max_depth', 'min_child_weight', 'subsample', 'colsample_bytree', 'lambda', 'alpha', 'best_score', 'best_iteration')
-
-# Imprimindo os resultados da otimização rápida
-print(cv_results)
-
+# Ordenando os resultados por uma métrica, por exemplo, Balanced_Accuracy
+resultados_ordenados <- resultados[order(-resultados$Balanced_Accuracy), ]
+head(resultados_ordenados)
+rm(resultados, variaveis, combinacoes, i)
 
 
+# Definindo os hiperparâmetros otimizados com base no resultado da busca em grade
+optimized_params <- list(
+  booster = "gbtree",
+  eta = 0.172,
+  max_depth = 9,
+  min_child_weight = 1,
+  subsample = 1,
+  colsample_bytree = 1,
+  lambda = 1,
+  alpha = 0.5,
+  objective = "binary:logistic"
+)
 
+# Selecionando apenas as colunas de interesse do DataFrame original
+colunas_interesse <- c("SIZE", "FUEL", "DISTANCE", "FREQUENCY", "STATUS")
 
+# Preparando os conjuntos de dados de treino e teste apenas com as colunas selecionadas
+dados_treino_selecionados <- dados_treino[colunas_interesse]
+dados_teste_selecionados <- dados_teste[colunas_interesse]
 
+# Convertendo fatores para variáveis dummy no conjunto de treino
+dados_treino_matriz <- model.matrix(~ . - STATUS, data = dados_treino_selecionados)
+labels_treino <- as.numeric(dados_treino_selecionados$STATUS) - 1
 
+# Convertendo fatores para variáveis dummy no conjunto de teste
+dados_teste_matriz <- model.matrix(~ . - STATUS, data = dados_teste_selecionados)
+labels_teste <- as.numeric(dados_teste_selecionados$STATUS) - 1
 
+# Convertendo para formato xgb.DMatrix
+dados_treino_xgb_selecionados <- xgb.DMatrix(data = dados_treino_matriz, label = labels_treino)
+dados_teste_xgb_selecionados <- xgb.DMatrix(data = dados_teste_matriz, label = labels_teste)
 
+# Treinando o modelo XGBoost com os hiperparâmetros otimizados e os dados selecionados
+modelo_xgb3 <- xgb.train(
+  params = optimized_params,
+  data = dados_treino_xgb_selecionados,
+  nrounds = 100
+)
 
+rm(colunas_interesse, dados_treino_selecionados, dados_treino_matriz,
+   labels_treino, dados_teste_matriz, labels_teste)
 
 
 # k-Nearest Neighbors (k-NN)
@@ -930,12 +1055,16 @@ previsoes_rf <- predict(modelo_rf, newdata = dados_teste)
 previsoes_svm <- predict(modelo_svm, newdata = dados_teste)
 previsoes_glm <- predict(modelo_glm, newdata = dados_teste, type = 'response')
 previsoes_xgb <- predict(modelo_xgb, newdata = dados_teste_xgb)
+previsoes_xgb2 <- predict(modelo_xgb2, newdata = dados_teste_xgb)
+previsoes_xgb3 <- predict(modelo_xgb3, newdata = dados_teste_xgb_selecionados)
 previsoes_nai <- predict(modelo_nai, dados_teste_dummy)
 previsoes_tre <- predict(modelo_tre, dados_teste, type = "class")
 conf_mat_rf <- confusionMatrix(previsoes_rf, dados_teste$STATUS)
 conf_mat_svm <- confusionMatrix(previsoes_svm, dados_teste$STATUS)
 conf_mat_glm <- confusionMatrix(factor(ifelse(previsoes_glm > 0.5, 1, 0)), dados_teste$STATUS)
 conf_mat_xgb <- confusionMatrix(factor(ifelse(previsoes_xgb > 0.5, 1, 0)), factor(as.numeric(dados_teste$STATUS) - 1))
+conf_mat_xgb2 <- confusionMatrix(factor(ifelse(previsoes_xgb2 > 0.5, 1, 0)), factor(as.numeric(dados_teste$STATUS) - 1))
+conf_mat_xgb3 <- confusionMatrix(factor(ifelse(previsoes_xgb3 > 0.5, 1, 0)), factor(as.numeric(dados_teste_selecionados$STATUS) - 1))
 conf_mat_knn <- confusionMatrix(modelo_knn, dados_teste$STATUS)
 conf_mat_nai <- confusionMatrix(previsoes_nai, dados_teste$STATUS)
 conf_mat_tre <- confusionMatrix(previsoes_tre, dados_teste$STATUS)
@@ -964,6 +1093,18 @@ resultados_modelos[['Versao8_xgb']] <- list(
   Specificity = round(conf_mat_xgb$byClass['Specificity'], 4),
   Balanced_Accuracy = round(conf_mat_xgb$byClass['Balanced Accuracy'], 4)
 )
+resultados_modelos[['Versao8_xgb2']] <- list(
+  Accuracy = round(conf_mat_xgb2$overall['Accuracy'], 4),
+  Sensitivity = round(conf_mat_xgb2$byClass['Sensitivity'], 4),
+  Specificity = round(conf_mat_xgb2$byClass['Specificity'], 4),
+  Balanced_Accuracy = round(conf_mat_xgb2$byClass['Balanced Accuracy'], 4)
+)
+resultados_modelos[['Versao8_xgb3']] <- list(
+  Accuracy = round(conf_mat_xgb3$overall['Accuracy'], 4),
+  Sensitivity = round(conf_mat_xgb3$byClass['Sensitivity'], 4),
+  Specificity = round(conf_mat_xgb3$byClass['Specificity'], 4),
+  Balanced_Accuracy = round(conf_mat_xgb3$byClass['Balanced Accuracy'], 4)
+)
 resultados_modelos[['Versao8_knn']] <- list(
   Accuracy = round(conf_mat_knn$overall['Accuracy'], 4),
   Sensitivity = round(conf_mat_knn$byClass['Sensitivity'], 4),
@@ -983,102 +1124,9 @@ resultados_modelos[['Versao8_tre']] <- list(
   Balanced_Accuracy = round(conf_mat_tre$byClass['Balanced Accuracy'], 4)
 )
 
-
-
 rm(previsoes_rf, previsoes_svm, previsoes_glm, previsoes_xgb)
 rm(conf_mat_rf, conf_mat_svm, conf_mat_glm, conf_mat_xgb)
 rm(dados_treino_xgb, dados_teste_xgb)
-
-
-
-
-
-#### Versão 9 (AutoMl)
-
-## Carregando dados
-dados <- data.frame(read_xlsx("dataset/Acoustic_Extinguisher_Fire_Dataset.xlsx"))
-dados <- dados[complete.cases(dados), ]
-str(dados)
-
-# - Utiliza Configurações da Versão 2 (apenas modificar as variáveis chr para tipo factor)
-# - Adiciona AutoMl
-
-
-## Carregando dados
-dados <- data.frame(read_xlsx("dataset/Acoustic_Extinguisher_Fire_Dataset.xlsx"))
-dados <- dados[complete.cases(dados), ]
-str(dados)
-
-
-## Preparação dos Dados
-
-# Convertendo as variáveis
-dados[c("SIZE", "FUEL", "STATUS")] <- lapply(dados[c("SIZE", "FUEL", "STATUS")], as.factor)
-dim(dados)
-str(dados)
-summary(dados)
-
-
-## Automl
-
-# Inicializando o H2O (Framework de Machine Learning)
-h2o.init()
-
-# O H2O requer que os dados estejam no formato de dataframe do H2O
-h2o_frame <- as.h2o(dados)
-class(h2o_frame)
-
-# Split dos dados em treino e teste (cria duas listas)
-h2o_frame_split <- h2o.splitFrame(h2o_frame, ratios = 0.85)
-head(h2o_frame_split)
-h2o_frame_split
-
-
-modelo_automl <- h2o.automl(y = 'STATUS',                                      # Nome da variável alvo atualizado para 'STATUS'
-                            training_frame = h2o_frame_split[[1]],             # Conjunto de dados de treinamento
-                            leaderboard_frame = h2o_frame_split[[2]],          # Conjunto de dados para a leaderboard
-                            max_runtime_secs = 60 * 10,
-                            sort_metric = "AUC")                               # Mudança da métrica de avaliação para AUC, adequada para classificação
-
-
-# Extrai o leaderboard (dataframe com os modelos criados)
-leaderboard_automl <- as.data.frame(modelo_automl@leaderboard)
-head(leaderboard_automl, 3)
-View(leaderboard_automl)
-
-
-# Extrai os líderes (modelo com melhor performance)
-lider_automl_gbm <- modelo_automl@leader
-print(lider_automl_gbm)
-lider_automl_sta <- h2o.getModel(leaderboard_automl$model_id[2])
-print(lider_automl_sta)
-lider_automl_xgb <- h2o.getModel(leaderboard_automl$model_id[21])
-print(lider_automl_xgb)
-
-# Salvando os Modelos
-# h2o.saveModel(lider_automl_gbm, path = "modelos", force = TRUE)
-# h2o.saveModel(lider_automl_sta, path = "modelos", force = TRUE)
-# h2o.saveModel(lider_automl_xgb, path = "modelos", force = TRUE)
-
-# Carregando os Modelos
-modelo_gbm <- h2o.loadModel(path = "modelos/GBM_grid_1_AutoML_1_20240215_131817_model_19")
-modelo_sta <- h2o.loadModel(path = "modelos/StackedEnsemble_BestOfFamily_4_AutoML_1_20240215_131817")
-modelo_xgb <- h2o.loadModel(path = "modelos/XGBoost_2_AutoML_1_20240215_131817")
-
-
-# Avaliação dos Modelos
-h2o.performance(modelo_gbm, newdata = h2o_frame_split[[2]])  # AUC:  0.9987656
-h2o.performance(modelo_sta, newdata = h2o_frame_split[[2]])  # AUC:  0.9987226
-h2o.performance(modelo_xgb, newdata = h2o_frame_split[[2]])  # AUC:  0.9973968
-
-
-# Desligar h2o
-h2o.shutdown()
-
-
-
-
-
 
 
 
@@ -1094,10 +1142,92 @@ View(modelos_params)
 
 
 
-## Possíveis Melhorias
 
-# - Experimentar com mais modelos e hiperparâmetros: Embora o projeto já inclua uma variedade de modelos, a experimentação com outros modelos avançados
-#   e a otimização de hiperparâmetros podem levar a melhorias adicionais no desempenho.
 
-##### Após aplicação das melhorias criar um loop para testar o uso das variáveis preditoras no modelo e assim conseguir a melhor combinação
 
+
+
+
+
+
+# #### Versão 9 (AutoMl)
+# 
+# ## Carregando dados
+# dados <- data.frame(read_xlsx("dataset/Acoustic_Extinguisher_Fire_Dataset.xlsx"))
+# dados <- dados[complete.cases(dados), ]
+# str(dados)
+# 
+# # - Utiliza Configurações da Versão 2 (apenas modificar as variáveis chr para tipo factor)
+# # - Adiciona AutoMl
+# 
+# 
+# ## Carregando dados
+# dados <- data.frame(read_xlsx("dataset/Acoustic_Extinguisher_Fire_Dataset.xlsx"))
+# dados <- dados[complete.cases(dados), ]
+# str(dados)
+# 
+# 
+# ## Preparação dos Dados
+# 
+# # Convertendo as variáveis
+# dados[c("SIZE", "FUEL", "STATUS")] <- lapply(dados[c("SIZE", "FUEL", "STATUS")], as.factor)
+# dim(dados)
+# str(dados)
+# summary(dados)
+# 
+# 
+# ## Automl
+# 
+# # Inicializando o H2O (Framework de Machine Learning)
+# h2o.init()
+# 
+# # O H2O requer que os dados estejam no formato de dataframe do H2O
+# h2o_frame <- as.h2o(dados)
+# class(h2o_frame)
+# 
+# # Split dos dados em treino e teste (cria duas listas)
+# h2o_frame_split <- h2o.splitFrame(h2o_frame, ratios = 0.85)
+# head(h2o_frame_split)
+# h2o_frame_split
+# 
+# 
+# modelo_automl <- h2o.automl(y = 'STATUS',                                      # Nome da variável alvo atualizado para 'STATUS'
+#                             training_frame = h2o_frame_split[[1]],             # Conjunto de dados de treinamento
+#                             leaderboard_frame = h2o_frame_split[[2]],          # Conjunto de dados para a leaderboard
+#                             max_runtime_secs = 60 * 10,
+#                             sort_metric = "AUC")                               # Mudança da métrica de avaliação para AUC, adequada para classificação
+# 
+# 
+# # Extrai o leaderboard (dataframe com os modelos criados)
+# leaderboard_automl <- as.data.frame(modelo_automl@leaderboard)
+# head(leaderboard_automl, 3)
+# View(leaderboard_automl)
+# 
+# 
+# # Extrai os líderes (modelo com melhor performance)
+# lider_automl_gbm <- modelo_automl@leader
+# print(lider_automl_gbm)
+# lider_automl_sta <- h2o.getModel(leaderboard_automl$model_id[2])
+# print(lider_automl_sta)
+# lider_automl_xgb <- h2o.getModel(leaderboard_automl$model_id[21])
+# print(lider_automl_xgb)
+# 
+# # Salvando os Modelos
+# # h2o.saveModel(lider_automl_gbm, path = "modelos", force = TRUE)
+# # h2o.saveModel(lider_automl_sta, path = "modelos", force = TRUE)
+# # h2o.saveModel(lider_automl_xgb, path = "modelos", force = TRUE)
+# 
+# # Carregando os Modelos
+# modelo_gbm <- h2o.loadModel(path = "modelos/GBM_grid_1_AutoML_1_20240215_131817_model_19")
+# modelo_sta <- h2o.loadModel(path = "modelos/StackedEnsemble_BestOfFamily_4_AutoML_1_20240215_131817")
+# modelo_xgb <- h2o.loadModel(path = "modelos/XGBoost_2_AutoML_1_20240215_131817")
+# 
+# 
+# # Avaliação dos Modelos
+# h2o.performance(modelo_gbm, newdata = h2o_frame_split[[2]])  # AUC:  0.9987656
+# h2o.performance(modelo_sta, newdata = h2o_frame_split[[2]])  # AUC:  0.9987226
+# h2o.performance(modelo_xgb, newdata = h2o_frame_split[[2]])  # AUC:  0.9973968
+# 
+# 
+# # Desligar h2o
+# h2o.shutdown()
